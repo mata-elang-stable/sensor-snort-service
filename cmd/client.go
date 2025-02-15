@@ -2,24 +2,25 @@ package main
 
 import (
 	"context"
-	"github.com/spf13/viper"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/spf13/viper"
+
 	_ "net/http/pprof"
 
-	"gitlab.com/mata-elang/v2/mes-snort/internal/output/grpc"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/output/grpc"
 
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/prometheus_exporter"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/prometheus_exporter"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/mata-elang-stable/sensor-snort-service/internal/config"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/listener"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/queue"
 	"github.com/spf13/cobra"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/config"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/listener"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/queue"
 )
 
 var clientCmd = &cobra.Command{

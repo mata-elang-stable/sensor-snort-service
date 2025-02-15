@@ -1,12 +1,13 @@
 package config
 
 import (
-	"github.com/nxadm/tail"
 	"io"
 	"sync"
 	"time"
 
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
+	"github.com/nxadm/tail"
+
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
 )
 
 type ClientConfig struct {

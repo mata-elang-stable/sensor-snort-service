@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
 	"os"
+
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
+	"github.com/spf13/cobra"
 )
 
 var (

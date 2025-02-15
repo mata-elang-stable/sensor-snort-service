@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/mata-elang-stable/sensor-snort-service/internal/listener"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/queue"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/listener"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/queue"
 )
 
 var (

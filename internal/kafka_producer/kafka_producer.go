@@ -2,12 +2,13 @@ package kafka_producer
 
 import (
 	"fmt"
+
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde/protobuf"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/pb"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/pb"
 )
 
 var log = logger.GetLogger()

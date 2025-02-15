@@ -6,8 +6,8 @@ import (
 	"os"
 	"sync"
 
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/pb"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/pb"
 )
 
 var log = logger.GetLogger()

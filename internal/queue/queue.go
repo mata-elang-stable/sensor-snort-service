@@ -2,16 +2,17 @@ package queue
 
 import (
 	"context"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/output/grpc"
-	"golang.org/x/sync/semaphore"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"gitlab.com/mata-elang/v2/mes-snort/internal/util"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/output/grpc"
+	"golang.org/x/sync/semaphore"
 
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/pb"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/util"
+
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/pb"
 )
 
 var log = logger.GetLogger()

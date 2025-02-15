@@ -2,7 +2,8 @@ package output
 
 import (
 	"context"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/pb"
+
+	"github.com/mata-elang-stable/sensor-snort-service/internal/pb"
 )
 
 type MessengerInterface interface {

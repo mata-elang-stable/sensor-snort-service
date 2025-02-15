@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/pb"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -24,7 +24,6 @@ type Messenger struct {
 	conn           *grpc.ClientConn
 	client         pb.SensorServiceClient
 	stream         pb.SensorService_StreamDataClient
-	totalEvents    int64
 	server         string
 	port           int
 	maxRetries     int
@@ -124,8 +123,6 @@ func (g *Messenger) StreamData(ctx context.Context, payloads []*pb.SensorEvent) 
 		}
 
 		for _, payload := range payloads {
-			g.totalEvents += payload.EventMetricsCount
-
 			payload.EventSentAt = time.Now().UnixMicro()
 
 			log.WithField("package", "grpc").Tracef("Sending data to gRPC server: \n\t%v\n", payload)
@@ -141,8 +138,6 @@ func (g *Messenger) StreamData(ctx context.Context, payloads []*pb.SensorEvent) 
 			log.WithField("package", "grpc").Errorf("Failed to close and receive data from gRPC server: %v\n", err)
 			return err
 		}
-
-		log.Infof("Sent %d events in total to gRPC server\n", g.totalEvents)
 
 		return nil
 	}

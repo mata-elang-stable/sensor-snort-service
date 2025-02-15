@@ -4,7 +4,7 @@ GOBUILD = $(GOCMD) build
 GOCLEAN = $(GOCMD) clean
 GOTEST = $(GOCMD) test
 GOGET = $(GOCMD) get
-BINARY_NAME = mesentinel
+BINARY_NAME = me-sensor
 VERSION?=2.0
 TARGET_PLATFORMS=linux/amd64 linux/arm64
 PROTOC = protoc
@@ -13,7 +13,7 @@ COMMIT_HASH = $(shell git rev-parse --short HEAD)
 LICENSE = MIT
 
 # Docker parameters
-DOCKER_IMAGE_NAME = mfscy/snort3-parser
+DOCKER_IMAGE_NAME = github.com/mata-elang-stable/sensor-snort-service
 DOCKER_IMAGE_TAG = 2
 
 comma:= ,

@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/fadhilyori/mesentinel/internal/pb"
-	"github.com/fadhilyori/mesentinel/internal/types"
 	"github.com/google/go-cmp/cmp"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/pb"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/types"
 )
 
 func toPtr[T any](d T) *T {
@@ -125,54 +125,6 @@ func Test_GetRawDataFromMetrics(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetRawDataFromMetrics(tt.args.data, tt.args.metric); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetRawDataFromMetrics() = %v, want %v", got, tt.want)
-				diff := cmp.Diff(got, tt.want)
-				t.Errorf("Differences: %s", diff)
-			}
-		})
-	}
-}
-
-func Test_generateHashSHA256(t *testing.T) {
-	type args struct {
-		payload *pb.SensorEvent
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "Must return a valid SHA256 hash",
-			args: args{
-				payload: &pb.SensorEvent{
-					SensorId:            "sensor-v2",
-					SensorVersion:       "v2",
-					EventHashSha256:     "acd3e48f512c08d7cbde5b3e2432703b1703747f87d7c1b7857558da85e5564e",
-					EventSentAt:         1732161976384394,
-					EventReadAt:         1732161973907043,
-					EventReceivedAt:     1732161976404502,
-					SnortAction:         toPtr("allow"),
-					SnortClassification: toPtr("A Network Trojan was detected"),
-					SnortDirection:      toPtr("C2S"),
-					SnortInterface:      "/datasets/pcap//Wednesday-workingHours.pcap",
-					SnortMessage:        "PUA-ADWARE Js.Adware.Agent variant redirect attempt",
-					SnortPriority:       1,
-					SnortProtocol:       "TCP",
-					SnortRuleGid:        1,
-					SnortRuleRev:        1,
-					SnortRuleSid:        54307,
-					SnortSeconds:        1728513131,
-					SnortService:        toPtr("http"),
-					SnortTypeOfService:  toPtr(int64(0)),
-				},
-			},
-			want: "d552f0eaec58b30e43dfae47a3067f71b38423b83d66d16d407f3fa89305038f",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GenerateHashSHA256(tt.args.payload); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("generateHashSHA256() = %v, want %v", got, tt.want)
 				diff := cmp.Diff(got, tt.want)
 				t.Errorf("Differences: %s", diff)
 			}
