@@ -3,9 +3,10 @@ package processor
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/pb"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/types"
+
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/pb"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/types"
 )
 
 var (

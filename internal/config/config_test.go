@@ -3,7 +3,7 @@ package config
 import (
 	"testing"
 
-	"github.com/fadhilyori/mesentinel/internal/logger"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
 )
 
 func Test_GetConfig(t *testing.T) {

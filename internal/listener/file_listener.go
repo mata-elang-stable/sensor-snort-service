@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/logger"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/processor"
 	"sync/atomic"
 	"time"
 
+	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/processor"
+
+	"github.com/mata-elang-stable/sensor-snort-service/internal/config"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/queue"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/types"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/util"
 	"github.com/nxadm/tail"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/config"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/queue"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/types"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/util"
 )
 
 type FileListener struct {

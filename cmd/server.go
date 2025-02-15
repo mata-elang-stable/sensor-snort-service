@@ -3,20 +3,21 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/config"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/kafka_producer"
-	"gitlab.com/mata-elang/v2/mes-snort/internal/pb"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/mata-elang-stable/sensor-snort-service/internal/config"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/kafka_producer"
+	"github.com/mata-elang-stable/sensor-snort-service/internal/pb"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var serverCmd = &cobra.Command{
