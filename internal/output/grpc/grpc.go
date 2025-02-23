@@ -116,9 +116,10 @@ func (g *Messenger) StreamData(ctx context.Context, payloads []*pb.SensorEvent) 
 		log.WithField("package", "grpc").Infoln("Context is done. Stopping the stream.")
 		return nil
 	default:
+		// initialize the stream
 		stream, err := g.client.StreamData(ctx)
 		if err != nil {
-			//log.Fatalf("Failed to open stream: %v", err)
+			log.Errorf("Failed to open stream: %v", err)
 			return err
 		}
 
