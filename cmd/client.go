@@ -104,14 +104,11 @@ func runClient(cmd *cobra.Command, args []string) {
 	// Create an event queue to store sensor events
 	eventQueue := queue.NewEventBatchQueue()
 
-	// Create an output handler
-	grpcClient, err := grpc.NewGRPCStreamClient(mainContext, conf.GRPCServer, conf.GRPCPort, grpc.CertOpts{Insecure: true}, confInstance.GRPCMaxMsgSize)
+	streamManager, err := grpc.NewStreamManager(conf.GRPCServer, conf.GRPCPort, grpc.CertOpts{Insecure: true}, confInstance.GRPCMaxMsgSize, 10*time.Second)
 	if err != nil {
-		log.WithField("error", err).Fatalln("failed to create grpc client")
-		return
+		log.Errorf("Failed to create stream manager: %v", err)
 	}
 
-	// Create a prometheus exporter
 	// Prometheus exporter is used to expose metrics to Prometheus
 	// The metrics are used to monitor the application
 	prom := prometheus_exporter.NewMetrics()
@@ -151,7 +148,7 @@ func runClient(cmd *cobra.Command, args []string) {
 		<-mainContext.Done()
 		log.Infof("Shutting down the client...")
 
-		grpcClient.Disconnect()
+		streamManager.Close()
 		return fileListener.Stop()
 	})
 

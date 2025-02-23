@@ -36,6 +36,8 @@ type CertOpts struct {
 	Insecure   bool
 }
 
+// NewGRPCStreamClient creates a new gRPC client that streams data to the server
+// Deprecated: Use NewStreamManager instead
 func NewGRPCStreamClient(mainCtx context.Context, server string, port int, certOpts CertOpts, maxMessageSize int) (*Messenger, error) {
 	ctx, cancel := context.WithCancel(mainCtx)
 
