@@ -13,7 +13,6 @@ import (
 
 	"github.com/mata-elang-stable/sensor-snort-service/internal/output/grpc"
 
-	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
 	"github.com/mata-elang-stable/sensor-snort-service/internal/prometheus_exporter"
 	"golang.org/x/sync/errgroup"
 
@@ -122,13 +121,17 @@ func runClient(cmd *cobra.Command, args []string) {
 
 	// Start the event queue watcher
 	g.Go(func() error {
-		err := eventQueue.StartWatcher(gCtx, grpcClient)
+		defer cancel()
+		log.Infof("Starting Watcher...")
+		err := eventQueue.StartWatcher(gCtx, streamManager)
 		defer log.WithField("package", "main").Infof("Watcher Job is stopped. (%v)\n", err)
 		return err
 	})
 
 	// Start the file listener
 	g.Go(func() error {
+		defer cancel()
+		log.Infof("Starting File Listener...")
 		err := fileListener.Start(gCtx, eventQueue)
 		defer log.WithField("package", "main").Infof("File Listener Job is stopped. (%v)\n", err)
 		return err
@@ -136,6 +139,7 @@ func runClient(cmd *cobra.Command, args []string) {
 
 	// Start the prometheus exporter server
 	g.Go(func() error {
+		log.Infof("Starting Prometheus Exporter Server...")
 		err := prom.StartServer(gCtx)
 		log.WithField("package", "main").Infof("Prometheus Exporter Job is stopped. (%v)\n", err)
 		return err
@@ -143,6 +147,7 @@ func runClient(cmd *cobra.Command, args []string) {
 
 	// Handle the main context cancellation
 	g.Go(func() error {
+		defer cancel()
 		<-mainContext.Done()
 		log.Infof("Shutting down the client...")
 
@@ -152,11 +157,13 @@ func runClient(cmd *cobra.Command, args []string) {
 
 	// Record metrics every second using the prometheus exporter
 	g.Go(func() error {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(10 * time.Second)
 		defer func() {
 			ticker.Stop()
 			log.Infoln("Metrics recorder is stopped.")
 		}()
+
+		log.Infof("Starting metrics recorder...")
 
 		for {
 			select {
@@ -167,21 +174,6 @@ func runClient(cmd *cobra.Command, args []string) {
 				return nil
 			case <-ticker.C:
 				prom.RecordMetrics(fileListener, eventQueue)
-
-				if log.GetLevel() == logger.DebugLevel {
-					log.WithFields(logger.Fields{
-						"read_persec":       fileListener.GetEventReadPerSecond(),
-						"processed_persec":  eventQueue.GetEventProcessedPerSecond(),
-						"batch_sent_persec": eventQueue.GetEventBatchSentPerSecond(),
-						"total_processed":   eventQueue.GetTotalProcessedEvents(),
-						"total_sent":        eventQueue.GetTotalSentEvents(),
-						"queue_size":        eventQueue.GetQueueSize(),
-					}).Debugln("Metrics")
-				} else if log.GetLevel() == logger.InfoLevel {
-					log.WithFields(logger.Fields{
-						"event_persec": eventQueue.GetEventBatchSentPerSecond(),
-					}).Infoln("Metrics")
-				}
 			}
 		}
 	})
