@@ -106,11 +106,6 @@ func (sm *StreamManager) SendEvent(event *pb.SensorEvent) error {
 }
 
 func (sm *StreamManager) SendBulkEvent(ctx context.Context, events []*pb.SensorEvent) (int64, error) {
-	stream, err := sm.getStream()
-	if err != nil {
-		return 0, err
-	}
-
 	totalEvents := int64(0)
 
 	for i := 0; i < len(events); {
@@ -118,11 +113,7 @@ func (sm *StreamManager) SendBulkEvent(ctx context.Context, events []*pb.SensorE
 		case <-ctx.Done():
 			return 0, ctx.Err()
 		default:
-			if err := stream.Send(events[i]); err != nil {
-				// If sending fails, close the stream so that it will be reestablished next time.
-				sm.mu.Lock()
-				sm.stream = nil
-				sm.mu.Unlock()
+			if err := sm.SendEvent(events[i]); err != nil {
 				continue
 			}
 
