@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 )
 
 type FileListener struct {
+	filename     string
 	tail         *tail.Tail
 	linesPerSec  atomic.Int64
 	linesThisSec atomic.Int64
@@ -30,8 +32,23 @@ func NewFileListener(filename string) (*FileListener, error) {
 	}
 
 	return &FileListener{
-		tail: t,
+		filename: filename,
+		tail:     t,
 	}, nil
+}
+
+func (f *FileListener) clearFileContent() {
+	file, err := os.OpenFile(f.filename, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		log.WithFields(logger.Fields{
+			"error":   err,
+			"package": "file_listener",
+		}).Warnln("failed to clear file content")
+		return
+	}
+	defer file.Close()
+
+	log.Infof("Cleared file content: %s", f.filename)
 }
 
 func (f *FileListener) Start(ctx context.Context, q *queue.EventBatchQueue) error {
@@ -57,6 +74,7 @@ func (f *FileListener) Start(ctx context.Context, q *queue.EventBatchQueue) erro
 	defer func() {
 		ticker.Stop()
 		f.tail.Cleanup()
+		f.clearFileContent()
 		f.linesThisSec.Store(0)
 		f.linesPerSec.Store(0)
 
@@ -64,6 +82,7 @@ func (f *FileListener) Start(ctx context.Context, q *queue.EventBatchQueue) erro
 		log.WithField("package", "file_listener").Infoln("Shutting down ListenFile process.")
 	}()
 
+MainLoop:
 	for line := range f.tail.Lines {
 		select {
 		case <-ctx.Done():
@@ -76,7 +95,8 @@ func (f *FileListener) Start(ctx context.Context, q *queue.EventBatchQueue) erro
 					"error":   err,
 					"package": "file_listener",
 				}).Debugln("failed to parse log line")
-				return nil
+
+				continue MainLoop
 			}
 
 			payload.Metadata.SensorID = conf.ClientConfig.SensorID

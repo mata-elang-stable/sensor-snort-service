@@ -111,6 +111,7 @@ func (c *Config) GetTailConfig() tail.Config {
 			Follow:    false,
 			MustExist: true,
 			Poll:      false,
+			CompleteLines: true,
 			Logger:    log,
 			Location:  &tail.SeekInfo{Whence: io.SeekStart},
 		}
@@ -121,6 +122,7 @@ func (c *Config) GetTailConfig() tail.Config {
 		Follow:    true,
 		MustExist: true,
 		Poll:      true,
+		CompleteLines: true,
 		Logger:    log,
 		Location:  &tail.SeekInfo{Whence: io.SeekStart},
 	}
