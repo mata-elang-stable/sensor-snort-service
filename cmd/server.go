@@ -73,12 +73,14 @@ type server struct {
 func (s *server) StreamData(stream pb.SensorService_StreamDataServer) error {
 	log.Traceln("Waiting for data from client via gRPC stream...")
 	currentSessionStreamCount := int64(0)
+	currentSessionBatchCount := int64(0)
 
 	for {
 		payload, err := stream.Recv()
 		if err == io.EOF {
-			log.Errorf("EOF received from client via gRPC stream: %v\n", err)
-			log.Infof("Received %d events in total from gRPC stream\n", currentSessionStreamCount)
+			log.Infof("Received %d events (%d) in total from gRPC stream session\n", currentSessionStreamCount, currentSessionBatchCount)
+			currentSessionStreamCount = 0
+			currentSessionBatchCount = 0
 			return stream.SendAndClose(&emptypb.Empty{})
 		}
 		if err != nil {
@@ -91,6 +93,7 @@ func (s *server) StreamData(stream pb.SensorService_StreamDataServer) error {
 
 		// calculate the total events received
 		currentSessionStreamCount += payload.EventMetricsCount
+		currentSessionBatchCount++
 
 		err = s.kafkaProducerInstance.Produce(payload)
 		if err != nil {
