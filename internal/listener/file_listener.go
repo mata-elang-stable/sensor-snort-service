@@ -64,6 +64,7 @@ func (f *FileListener) Start(ctx context.Context, q *queue.EventBatchQueue) erro
 		log.WithField("package", "file_listener").Infoln("Shutting down ListenFile process.")
 	}()
 
+MainLoop:
 	for line := range f.tail.Lines {
 		select {
 		case <-ctx.Done():
@@ -76,7 +77,8 @@ func (f *FileListener) Start(ctx context.Context, q *queue.EventBatchQueue) erro
 					"error":   err,
 					"package": "file_listener",
 				}).Debugln("failed to parse log line")
-				return nil
+
+				continue MainLoop
 			}
 
 			payload.Metadata.SensorID = conf.ClientConfig.SensorID
