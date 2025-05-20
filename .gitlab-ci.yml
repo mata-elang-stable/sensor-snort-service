@@ -2,13 +2,13 @@ stages:
   - code
   - build
 
-# variables:
-#   DOCKER_HOST: tcp://docker:2375/
-#   DOCKER_TLS_CERTDIR: ""
+variables:
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_TLS_CERTDIR: ""
 
-# services:
-#   - name: docker:dind
-#     alias: docker
+services:
+  - name: docker:dind
+    alias: docker
 #     command: ["--tls=false", "--insecure-registry=10.10.10.61:5050", "--host=tcp://0.0.0.0:2375"]
 
 check-sensitive-information:
