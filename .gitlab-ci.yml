@@ -70,7 +70,7 @@ build-image-and-container-scanning:
       - echo $TRIVY_VERSION
       - wget --no-verbose https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -O - | tar -zxvf -
       # - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
-      - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $I_REGISTRY
+      - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
     script:
       - docker build -f $CI_PROJECT_DIR/Dockerfile -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
       - ./trivy image --exit-code 0 --scanners vuln --output container-scanning-report.txt $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
