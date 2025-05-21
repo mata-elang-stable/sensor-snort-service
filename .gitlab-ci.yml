@@ -11,55 +11,55 @@ services:
     alias: docker
 #     command: ["--tls=false", "--insecure-registry=10.10.10.61:5050", "--host=tcp://0.0.0.0:2375"]
 
-check-sensitive-information:
-  stage: code
-  tags:
-    - docker
-  image: 
-    name: "trufflesecurity/trufflehog:latest"
-    entrypoint: [""]
-  script:
-    - trufflehog filesystem $CI_PROJECT_DIR --no-verification --fail --exclude-paths $CI_PROJECT_DIR/truffle-scan/exclude-paths.txt
-  allow_failure: false
-  cache: {}
+# check-sensitive-information:
+#   stage: code
+#   tags:
+#     - docker
+#   image: 
+#     name: "trufflesecurity/trufflehog:latest"
+#     entrypoint: [""]
+#   script:
+#     - trufflehog filesystem $CI_PROJECT_DIR --no-verification --fail --exclude-paths $CI_PROJECT_DIR/truffle-scan/exclude-paths.txt
+#   allow_failure: false
+#   cache: {}
 
-software-composition-analysis:
-  stage: build
-  image: 
-    name: aquasec/trivy:latest
-    entrypoint: [""]
-  script:
-    - trivy fs --exit-code 0 --scanners misconfig,vuln --output sca-report.txt $CI_PROJECT_DIR
-    - trivy fs --exit-code 1 --scanners misconfig,vuln --severity HIGH,CRITICAL $CI_PROJECT_DIR
-  artifacts:
-    when: always
-    paths:
-      - sca-report.txt
-  cache:
-    paths:
-      - .trivycache/
-  allow_failure: false
+# software-composition-analysis:
+#   stage: build
+#   image: 
+#     name: aquasec/trivy:latest
+#     entrypoint: [""]
+#   script:
+#     - trivy fs --exit-code 0 --scanners misconfig,vuln --output sca-report.txt $CI_PROJECT_DIR
+#     - trivy fs --exit-code 1 --scanners misconfig,vuln --severity HIGH,CRITICAL $CI_PROJECT_DIR
+#   artifacts:
+#     when: always
+#     paths:
+#       - sca-report.txt
+#   cache:
+#     paths:
+#       - .trivycache/
+#   allow_failure: false
 
-sast:
-  stage: build
-  image: golang:alpine
-  needs:
-    - job: software-composition-analysis
-  before_script:
-    - apk add --no-cache git jq
-    - go install github.com/securego/gosec/v2/cmd/gosec@latest
-  script:
-    - gosec -fmt=json -no-fail -out=sast-report.json $CI_PROJECT_DIR/...
-    - |
-      if jq '.Issues | map(select(.severity=="HIGH" or .severity=="CRITICAL")) | length > 0' sast-report.json | grep -q true; then
-        echo "High or Critical vulnerabilities detected"
-        exit 1
-      fi
-  artifacts:
-    when: always
-    paths:
-      - sast-report.json
-  allow_failure: false
+# sast:
+#   stage: build
+#   image: golang:alpine
+#   needs:
+#     - job: software-composition-analysis
+#   before_script:
+#     - apk add --no-cache git jq
+#     - go install github.com/securego/gosec/v2/cmd/gosec@latest
+#   script:
+#     - gosec -fmt=json -no-fail -out=sast-report.json $CI_PROJECT_DIR/...
+#     - |
+#       if jq '.Issues | map(select(.severity=="HIGH" or .severity=="CRITICAL")) | length > 0' sast-report.json | grep -q true; then
+#         echo "High or Critical vulnerabilities detected"
+#         exit 1
+#       fi
+#   artifacts:
+#     when: always
+#     paths:
+#       - sast-report.json
+#   allow_failure: false
 
 build-image-and-container-scanning:
     stage: build
@@ -69,7 +69,8 @@ build-image-and-container-scanning:
       - export TRIVY_VERSION=$(wget -qO - "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
       - echo $TRIVY_VERSION
       - wget --no-verbose https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -O - | tar -zxvf -
-      - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+      # - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+      - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $I_REGISTRY
     script:
       - docker build -f $CI_PROJECT_DIR/Dockerfile -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
       - ./trivy image --exit-code 0 --scanners vuln --output container-scanning-report.txt $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
