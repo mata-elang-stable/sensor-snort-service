@@ -9,7 +9,7 @@ variables:
 services:
   - name: docker:dind
     alias: docker
-    command: ["--tls=false", "--host=tcp://0.0.0.0:2375"]
+    command: ["--tls=false", "--insecure-registry=https://registry.gitlab.mataelang.net", "--host=tcp://0.0.0.0:2375"]
 
 # check-sensitive-information:
 #   stage: code
