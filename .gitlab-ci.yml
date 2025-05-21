@@ -83,5 +83,3 @@ build-image-and-container-scanning:
       paths:
         - .trivycache/  
     allow_failure: false
-
-
