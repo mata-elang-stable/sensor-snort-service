@@ -133,7 +133,7 @@ deploy-to-prod:
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
     - chmod 600 ~/.ssh/id_ed25519
     - ssh-keyscan -H $SSH_ADDRESS >> ~/.ssh/known_hosts
-    - ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_ADDRESS echo "SSH OKE"
+    - ssh -vvv -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_ADDRESS
     - export SHA_REPO_SENSOR_COMPOSE=$(sha256sum $CI_PROJECT_DIR/.deploy/sensor_snort/compose.yml | awk '{print $1}')
     - export SHA_REPO_SENSOR_ENV=$(sha256sum $CI_PROJECT_DIR/.deploy/sensor_snort/.env.example | awk '{print $1}')
     - export SHA_REPO_DC_COMPOSE=$(sha256sum $CI_PROJECT_DIR/.deploy/defense_center/compose.yml | awk '{print $1}')
