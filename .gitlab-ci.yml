@@ -2,6 +2,7 @@ stages:
   - code
   - build
   - test
+  - deploy
 
 variables:
   DOCKER_HOST: tcp://docker:2375/
@@ -122,3 +123,58 @@ post-dast-retag-image:
     - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
     - docker push $CI_REGISTRY_IMAGE:latest
+
+deploy-to-prod:
+  stage: deploy
+  when: manual
+  before_script: 
+    - apk add --no-cache openssh-client rsync coreutils
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H $SSH_ADDRESS >> ~/.ssh/known_hosts
+    - ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_ADDRESS echo "SSH OKE"
+    - export SHA_REPO_SENSOR_COMPOSE=$(sha256sum $CI_PROJECT_DIR/.deploy/sensor_snort/compose.yml | awk '{print $1}')
+    - export SHA_REPO_SENSOR_ENV=$(sha256sum $CI_PROJECT_DIR/.deploy/sensor_snort/.env.example | awk '{print $1}')
+    - export SHA_REPO_DC_COMPOSE=$(sha256sum $CI_PROJECT_DIR/.deploy/defense_center/compose.yml | awk '{print $1}')
+    - export SHA_REPO_DC_ENV=$(sha256sum $CI_PROJECT_DIR/.deploy/defense_center/.env.example | awk '{print $1}')
+    - export SHA_REMOTE_SENSOR_COMPOSE=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/sensor_snort/compose.yml || echo "NONE")
+    - export SHA_REMOTE_SENSOR_ENV=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/sensor_snort/.env || echo "NONE")
+    - export SHA_REMOTE_DC_COMPOSE=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/defense_center/compose.yml || echo "NONE")
+    - export SHA_REMOTE_DC_ENV=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/defense_center/.env || echo "NONE")
+  script:
+    - |
+        if [ "$SHA_REPO_SENSOR_COMPOSE" != "$SHA_REMOTE_SENSOR_COMPOSE" ]; then
+          echo "Ada Perubahan docker-compose sensor..."
+          ssh $SSH_USER@$SSH_ADDRESS "sudo docker-compose -f $DEPLOY_PATH/sensor_snort/compose.yml down || true"
+          rsync -avz -e ssh $CI_PROJECT_DIR/.deploy/sensor_snort/compose.yml $SSH_USER@$SSH_ADDRESS:$DEPLOY_PATH/sensor_snort/compose.yml
+        else
+          echo "Tidak ada perubahan pada docker-compose sensor"
+        fi
+
+        if [ "$SHA_REPO_SENSOR_ENV" != "$SHA_REMOTE_SENSOR_ENV" ]; then
+          echo "Ada Perubahan .env sensor..."
+          rsync -avz -e ssh $CI_PROJECT_DIR/.deploy/sensor_snort/.env.example $SSH_USER@$SSH_ADDRESS:$DEPLOY_PATH/sensor_snort/.env
+        else
+          echo "Tidak ada perubahan pada .env sensor"
+        fi
+
+        if [ "$SHA_REPO_DC_COMPOSE" != "$SHA_REMOTE_DC_COMPOSE" ]; then
+          echo "Ada Perubahan docker-compose defense center..."
+          ssh $SSH_USER@$SSH_ADDRESS "sudo docker-compose -f $DEPLOY_PATH/defense_center/compose.yml down || true"
+          rsync -avz -e ssh $CI_PROJECT_DIR/.deploy/defense_center/compose.yml $SSH_USER@$SSH_ADDRESS:$DEPLOY_PATH/defense_center/compose.yml
+        else
+          echo "Tidak ada perubahan pada docker-compose defense center"
+        fi
+
+        if [ "$SHA_REPO_DC_ENV" != "$SHA_REMOTE_DC_ENV" ]; then
+          echo "Ada Perubahan .env defense center..."
+          rsync -avz -e ssh $CI_PROJECT_DIR/.deploy/defense_center/.env.example $SSH_USER@$SSH_ADDRESS:$DEPLOY_PATH/defense_center/.env
+        else
+          echo "Tidak ada perubahan pada .env defense center"
+        fi
+
+        ssh $SSH_USER@$SSH_ADDRESS "cd $DEPLOY_PATH && sudo docker-compose -f defense_center/compose.yml pull && sudo docker-compose -f defense_center/compose.yml up -d --force-recreate"
+        ssh $SSH_USER@$SSH_ADDRESS "cd $DEPLOY_PATH && sudo docker-compose -f sensor_snort/compose.yml pull && sudo docker-compose -f sensor_snort/compose.yml up -d --force-recreate"
+
+
