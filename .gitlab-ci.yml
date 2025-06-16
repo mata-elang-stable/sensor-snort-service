@@ -14,8 +14,6 @@ services:
 
 check-sensitive-information:
   stage: code
-  # tags:
-  #   - docker
   image: 
     name: "trufflesecurity/trufflehog:latest"
     entrypoint: [""]

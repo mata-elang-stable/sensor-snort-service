@@ -6,7 +6,7 @@ services:
     depends_on:
       - sensor-api
     volumes:
-      - $CI_PROJECT_DIR/dast:/dast
+      - $CI_PROJECT_DIR/.dast:/dast
     working_dir: /dast
     entrypoint: [""]
     command: >
