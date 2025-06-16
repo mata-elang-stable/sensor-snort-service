@@ -142,6 +142,7 @@ deploy-to-prod:
     - export SHA_REMOTE_SENSOR_ENV=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/sensor_snort/.env || echo "NONE")
     - export SHA_REMOTE_DC_COMPOSE=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/defense_center/compose.yml || echo "NONE")
     - export SHA_REMOTE_DC_ENV=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/defense_center/.env || echo "NONE")
+    - ssh $SSH_USER@$SSH_ADDRESS echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
   script:
     - |
         if [ "$SHA_REPO_SENSOR_COMPOSE" != "$SHA_REMOTE_SENSOR_COMPOSE" ]; then
