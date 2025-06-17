@@ -11,7 +11,7 @@ volumes:
 
 services:
   snort:
-    image: registry.gitlab.mataelang.net/mata-elang/snort3-docker-image:latest-debian
+    image: ghcr.io/mata-elang-stable/snort3-docker-image:v2.0-debian
     restart: unless-stopped
     network_mode: host
     env_file:
