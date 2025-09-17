@@ -1,20 +1,20 @@
 stages:
   - code
+  - pre-build
   - build
-  - test
-  - deploy
+
 variables:
   DOCKER_HOST: tcp://docker:2375/
   DOCKER_TLS_CERTDIR: ""
+  SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar" 
 
 services:
   - name: docker:dind
     alias: docker
-    # command: ["--tls=false", "--insecure-registry=https://registry.gitlab.mataelang.net", "--host=tcp://0.0.0.0:2375"]
 
 check-sensitive-information:
   stage: code
-  image: 
+  image:
     name: "trufflesecurity/trufflehog:latest"
     entrypoint: [""]
   script:
@@ -23,8 +23,8 @@ check-sensitive-information:
   cache: {}
 
 software-composition-analysis:
-  stage: build
-  image: 
+  stage: pre-build
+  image:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
@@ -39,11 +39,9 @@ software-composition-analysis:
       - .trivycache/
   allow_failure: false
 
-sast:
+sast-gosec:
   stage: build
   image: golang:alpine
-  needs:
-    - job: software-composition-analysis
   before_script:
     - apk add --no-cache git jq
     - go install github.com/securego/gosec/v2/cmd/gosec@latest
@@ -59,6 +57,26 @@ sast:
     paths:
       - sast-report.json
   allow_failure: false
+
+sast-sonar:
+  stage: pre-build
+  image:
+    name: sonarsource/sonar-scanner-cli:11
+    entrypoint: [""]
+  cache:
+    policy: pull-push
+    key: "sonar-cache-$CI_COMMIT_REF_SLUG"
+    paths:
+      - "${SONAR_USER_HOME}/cache"
+      - sonar-scanner/
+  script:
+    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}"
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
 
 build-image-and-container-scanning:
     stage: build
@@ -80,101 +98,6 @@ build-image-and-container-scanning:
         - container-scanning-report.txt
     cache:
       paths:
-        - .trivycache/  
+        - .trivycache/
     allow_failure: false
-
-dast:
-  stage: test
-  before_script:
-    - apk add --no-cache docker-compose
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
-    - docker-compose -f .dast/docker-compose.yml up -d sensor-api broker schema-registry
-    - sleep 30
-    - docker-compose -f .dast/docker-compose.yml ps
-    - docker-compose -f .dast/docker-compose.yml logs sensor-api
-    - docker-compose -f .dast/docker-compose.yml logs broker
-    - docker-compose -f .dast/docker-compose.yml logs schema-registry
-  script:
-    - docker-compose -f .dast/docker-compose.yml run --rm grpc-dast
-
-post-dast-remove-image:
-  stage: test
-  needs: 
-    - job: dast
-  when: on_failure
-  before_script:
-    - apk add curl
-    - curl --fail-with-body --location "https://github.com/regclient/regclient/releases/download/v0.8.3/regctl-linux-amd64" > /usr/bin/regctl
-    - chmod 755 /usr/bin/regctl
-    - regctl registry login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
-  script:
-    - regctl tag rm $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
-    - exit 1
-
-post-dast-retag-image:
-  stage: test
-  needs: 
-    - job: dast
-  when: on_success  
-  before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
-  script:
-    - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
-    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
-    - docker push $CI_REGISTRY_IMAGE:latest
-
-deploy-to-prod:
-  stage: deploy
-  when: manual
-  before_script: 
-    - apk add --no-cache openssh-client openssh-keygen openssl rsync coreutils
-    - mkdir -p ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_ed25519
-    - chmod 600 ~/.ssh/id_ed25519
-    - ssh-keyscan -H $SSH_ADDRESS >> ~/.ssh/known_hosts
-    - ssh -vvv -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_ADDRESS
-    - export SHA_REPO_SENSOR_COMPOSE=$(sha256sum $CI_PROJECT_DIR/.deploy/sensor_snort/compose.yml | awk '{print $1}')
-    - export SHA_REPO_SENSOR_ENV=$(sha256sum $CI_PROJECT_DIR/.deploy/sensor_snort/.env.example | awk '{print $1}')
-    - export SHA_REPO_DC_COMPOSE=$(sha256sum $CI_PROJECT_DIR/.deploy/defense_center/compose.yml | awk '{print $1}')
-    - export SHA_REPO_DC_ENV=$(sha256sum $CI_PROJECT_DIR/.deploy/defense_center/.env.example | awk '{print $1}')
-    - export SHA_REMOTE_SENSOR_COMPOSE=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/sensor_snort/compose.yml || echo "NONE")
-    - export SHA_REMOTE_SENSOR_ENV=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/sensor_snort/.env || echo "NONE")
-    - export SHA_REMOTE_DC_COMPOSE=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/defense_center/compose.yml || echo "NONE")
-    - export SHA_REMOTE_DC_ENV=$(ssh $SSH_USER@$SSH_ADDRESS sha256sum $DEPLOY_PATH/defense_center/.env || echo "NONE")
-    - ssh $SSH_USER@$SSH_ADDRESS echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
-  script:
-    - |
-        if [ "$SHA_REPO_SENSOR_COMPOSE" != "$SHA_REMOTE_SENSOR_COMPOSE" ]; then
-          echo "Ada Perubahan docker-compose sensor..."
-          ssh $SSH_USER@$SSH_ADDRESS "sudo docker-compose -f $DEPLOY_PATH/sensor_snort/compose.yml down || true"
-          rsync -avz -e ssh $CI_PROJECT_DIR/.deploy/sensor_snort/compose.yml $SSH_USER@$SSH_ADDRESS:$DEPLOY_PATH/sensor_snort/compose.yml
-        else
-          echo "Tidak ada perubahan pada docker-compose sensor"
-        fi
-
-        if [ "$SHA_REPO_SENSOR_ENV" != "$SHA_REMOTE_SENSOR_ENV" ]; then
-          echo "Ada Perubahan .env sensor..."
-          rsync -avz -e ssh $CI_PROJECT_DIR/.deploy/sensor_snort/.env.example $SSH_USER@$SSH_ADDRESS:$DEPLOY_PATH/sensor_snort/.env
-        else
-          echo "Tidak ada perubahan pada .env sensor"
-        fi
-
-        if [ "$SHA_REPO_DC_COMPOSE" != "$SHA_REMOTE_DC_COMPOSE" ]; then
-          echo "Ada Perubahan docker-compose defense center..."
-          ssh $SSH_USER@$SSH_ADDRESS "sudo docker-compose -f $DEPLOY_PATH/defense_center/compose.yml down || true"
-          rsync -avz -e ssh $CI_PROJECT_DIR/.deploy/defense_center/compose.yml $SSH_USER@$SSH_ADDRESS:$DEPLOY_PATH/defense_center/compose.yml
-        else
-          echo "Tidak ada perubahan pada docker-compose defense center"
-        fi
-
-        if [ "$SHA_REPO_DC_ENV" != "$SHA_REMOTE_DC_ENV" ]; then
-          echo "Ada Perubahan .env defense center..."
-          rsync -avz -e ssh $CI_PROJECT_DIR/.deploy/defense_center/.env.example $SSH_USER@$SSH_ADDRESS:$DEPLOY_PATH/defense_center/.env
-        else
-          echo "Tidak ada perubahan pada .env defense center"
-        fi
-
-        ssh $SSH_USER@$SSH_ADDRESS "cd $DEPLOY_PATH && sudo docker-compose -f defense_center/compose.yml pull && sudo docker-compose -f defense_center/compose.yml up -d --force-recreate"
-        ssh $SSH_USER@$SSH_ADDRESS "cd $DEPLOY_PATH && sudo docker-compose -f sensor_snort/compose.yml pull && sudo docker-compose -f sensor_snort/compose.yml up -d --force-recreate"
-
 
