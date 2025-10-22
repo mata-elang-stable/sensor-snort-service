@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/mata-elang-stable/sensor-snort-service/internal/output/grpc"
-	"golang.org/x/sync/semaphore"
-
 	"github.com/mata-elang-stable/sensor-snort-service/internal/util"
 
 	"github.com/mata-elang-stable/sensor-snort-service/internal/logger"
@@ -65,17 +63,18 @@ func (q *EventBatchQueue) AddRecordToQueue(pbRecord *pb.SensorEvent, metric *pb.
 
 // StartWatcher starts a watcher to process the queue.
 // The watcher will send the sensor events to the channel if the record is already older than the delta time.
-func (q *EventBatchQueue) StartWatcher(ctx context.Context, handler *grpc.Messenger) error {
+func (q *EventBatchQueue) StartWatcher(ctx context.Context, handler *grpc.StreamManager) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	sem := semaphore.NewWeighted(10)
+	var wg sync.WaitGroup
 
 	for {
 		select {
 		case <-ctx.Done():
 			// Context is done, wait for all goroutines to finish and return
 			log.WithField("package", "queue").Infof("Stopping watcher due to context cancellation")
+			wg.Wait()
 			return nil
 		case <-ticker.C:
 			util.UpdateAndReset(&q.latestEventPerSec, &q.EventThisSec)
@@ -84,21 +83,16 @@ func (q *EventBatchQueue) StartWatcher(ctx context.Context, handler *grpc.Messen
 			eventsBatch := q.processQueue()
 
 			if len(eventsBatch) > 0 {
+				wg.Add(1)
 				go func() {
-					// Acquire the semaphore
-					if err := sem.Acquire(ctx, 1); err != nil {
-						log.Errorf("Failed to acquire semaphore: %v", err)
-						return
-					}
-
-					defer sem.Release(1)
-
-					if err := handler.StreamData(ctx, eventsBatch); err != nil {
+					defer wg.Done()
+					totalEvent, err := handler.SendBulkEvent(ctx, eventsBatch)
+					if err != nil {
 						log.WithField("package", "queue").Errorf("Failed to send data to gRPC server: %v", err)
 					}
+					q.TotalSentEvents.Add(totalEvent)
 				}()
 			}
-
 		}
 	}
 }

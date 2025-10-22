@@ -22,11 +22,15 @@ type Producer struct {
 func NewKafkaProducer(brokers string, schemaRegistryUrl string, topic string) (*Producer, error) {
 	config := &kafka.ConfigMap{
 		"bootstrap.servers":        brokers,
-		"message.send.max.retries": 5,
-		"retry.backoff.ms":         100,
 		"enable.idempotence":       true,
+		"linger.ms":                10,
+		"batch.size":               65536,
 		"acks":                     "all",
+		"message.send.max.retries": 5,
+		"message.max.bytes":        1000000000,
+		"retry.backoff.ms":         100,
 		"socket.keepalive.enable":  true,
+		"go.batch.producer":        true,
 	}
 	p, err := kafka.NewProducer(config)
 	if err != nil {
@@ -105,10 +109,11 @@ func (k *Producer) Produce(value *pb.SensorEvent) error {
 	}
 
 	if err := k.p.Produce(payload, nil); err != nil {
+		log.Errorf("Failed to produce message with size %d: %v\n", value.EventMetricsCount, err)
 		return err
 	}
 
-	log.Debugf("Produced message: %v\n", value.EventHashSha256)
+	log.Tracef("Produced message: %v\n", value.EventHashSha256)
 	return nil
 }
 

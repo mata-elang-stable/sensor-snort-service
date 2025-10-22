@@ -62,9 +62,9 @@ func GetLogger() *logrus.Logger {
 			DisableLevelTruncation: true,
 			DisableTimestamp:       false,
 			QuoteEmptyFields:       true,
-			//TimestampFormat:        "2006-01-02 15:04:05.000",
+			TimestampFormat:        "2006-01-02 15:04:05.000",
 			// timestamp format use epoch time or unix time
-			TimestampFormat: "1351700038",
+			// TimestampFormat: "1351700038",
 		})
 	})
 
