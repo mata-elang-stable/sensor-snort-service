@@ -41,7 +41,7 @@ software-composition-analysis:
   allow_failure: false
 
 sast-gosec:
-  stage: build
+  stage: pre-build
   image: golang:alpine
   before_script:
     - apk add --no-cache git jq
@@ -88,10 +88,10 @@ build-image-and-container-scanning:
       - wget --no-verbose https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -O - | tar -zxvf -
       - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     script:
-      - docker build -f $CI_PROJECT_DIR/Dockerfile -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
+      - docker build -f $CI_PROJECT_DIR/Dockerfile -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA -t $CI_REGISTRY_IMAGE:latest .
       - ./trivy image --exit-code 0 --scanners vuln --output container-scanning-report.txt $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
       - ./trivy image --exit-code 1 --scanners vuln --severity HIGH,CRITICAL $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA 
-      - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+      - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
     artifacts:
       when: always
       paths:
