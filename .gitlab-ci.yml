@@ -3,15 +3,15 @@ stages:
   - pre-build
   - build
 
-variables:
-  DOCKER_HOST: tcp://docker:2375/
-  DOCKER_TLS_CERTDIR: ""
-  DOCKER_DRIVER: overlay2
-  SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar" 
+# variables:
+#   DOCKER_HOST: tcp://docker:2375/
+#   DOCKER_TLS_CERTDIR: ""
+#   DOCKER_DRIVER: overlay2
+#   SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar" 
 
-services:
-  - name: docker:dind
-    alias: docker
+# services:
+#   - name: docker:dind
+#     alias: docker
 
 check-sensitive-information:
   stage: code
