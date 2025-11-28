@@ -30,7 +30,8 @@ type ClientConfig struct {
 	SensorID string `mapstructure:"sensor_id"`
 
 	// GRPCCertFile is the certificate file to connect to the server.
-	GRPCCertFile string
+	GRPCCertFile string `mapstructure:"certificate"`
+	GRPCKeyFile  string `mapstructure:"key"`
 
 	// GRPCServerName is the name of the server.
 	GRPCServerName string
@@ -53,7 +54,9 @@ type ServerConfig struct {
 	GRPCPort int `mapstructure:"port"`
 
 	// GRPCSecure is a flag to determine whether the connection is secure or not.
-	GRPCSecure bool `mapstructure:"secure"`
+	GRPCSecure   bool   `mapstructure:"secure"`
+	GRPCCertFile string `mapstructure:"certificate"`
+	GRPCKeyFile  string `mapstructure:"key"`
 
 	// SchemaRegistryUrl is the schema registry URL.
 	SchemaRegistryUrl string `mapstructure:"schema_registry_url"`
@@ -107,24 +110,24 @@ func (c *Config) GetTailConfig() tail.Config {
 		log.Infof("Testing mode enabled.")
 
 		return tail.Config{
-			ReOpen:    false,
-			Follow:    false,
-			MustExist: true,
-			Poll:      false,
+			ReOpen:        false,
+			Follow:        false,
+			MustExist:     true,
+			Poll:          false,
 			CompleteLines: true,
-			Logger:    log,
-			Location:  &tail.SeekInfo{Whence: io.SeekStart},
+			Logger:        log,
+			Location:      &tail.SeekInfo{Whence: io.SeekStart},
 		}
 	}
 
 	return tail.Config{
-		ReOpen:    true,
-		Follow:    true,
-		MustExist: true,
-		Poll:      true,
+		ReOpen:        true,
+		Follow:        true,
+		MustExist:     true,
+		Poll:          true,
 		CompleteLines: true,
-		Logger:    log,
-		Location:  &tail.SeekInfo{Whence: io.SeekStart},
+		Logger:        log,
+		Location:      &tail.SeekInfo{Whence: io.SeekStart},
 	}
 }
 
