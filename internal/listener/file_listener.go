@@ -38,7 +38,7 @@ func NewFileListener(filename string) (*FileListener, error) {
 }
 
 func (f *FileListener) clearFileContent() {
-	file, err := os.OpenFile(f.filename, os.O_WRONLY|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(f.filename, os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		log.WithFields(logger.Fields{
 			"error":   err,

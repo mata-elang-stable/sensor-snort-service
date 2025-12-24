@@ -63,6 +63,18 @@ type ServerConfig struct {
 
 	// KafkaTopic is the Kafka topic.
 	KafkaTopic string `mapstructure:"kafka_topic"`
+
+	// SecurityProtocol is the security protocol to use.
+	SecurityProtocol string `mapstructure:"security_protocol"`
+
+	// PathToCA is the path to the CA certificate file.
+	PathToCA string `mapstructure:"path_to_ca"`
+
+	// PathToClientKeystore is the path to a PKCS#12 keystore used for mTLS.
+	PathToClientKeystore string `mapstructure:"path_to_client_keystore"`
+
+	// ClientKeystorePassword is the password for the client PKCS#12 keystore.
+	ClientKeystorePassword string `mapstructure:"client_keystore_password"`
 }
 
 type Config struct {
@@ -107,24 +119,24 @@ func (c *Config) GetTailConfig() tail.Config {
 		log.Infof("Testing mode enabled.")
 
 		return tail.Config{
-			ReOpen:    false,
-			Follow:    false,
-			MustExist: true,
-			Poll:      false,
+			ReOpen:        false,
+			Follow:        false,
+			MustExist:     true,
+			Poll:          false,
 			CompleteLines: true,
-			Logger:    log,
-			Location:  &tail.SeekInfo{Whence: io.SeekStart},
+			Logger:        log,
+			Location:      &tail.SeekInfo{Whence: io.SeekStart},
 		}
 	}
 
 	return tail.Config{
-		ReOpen:    true,
-		Follow:    true,
-		MustExist: true,
-		Poll:      true,
+		ReOpen:        true,
+		Follow:        true,
+		MustExist:     true,
+		Poll:          true,
 		CompleteLines: true,
-		Logger:    log,
-		Location:  &tail.SeekInfo{Whence: io.SeekStart},
+		Logger:        log,
+		Location:      &tail.SeekInfo{Whence: io.SeekStart},
 	}
 }
 

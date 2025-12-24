@@ -3,12 +3,13 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/mata-elang-stable/sensor-snort-service/internal/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"sync"
-	"time"
 )
 
 // StreamManager wraps your gRPC stream and auto-closes it after a timeout.
@@ -83,7 +84,9 @@ func (sm *StreamManager) resetTimer() {
 		defer sm.mu.Unlock()
 		log.Println("Timeout reached; closing stream")
 		if sm.stream != nil {
-			sm.stream.CloseSend()
+			if err := sm.stream.CloseSend(); err != nil {
+				log.Errorln("Failed to close stream on timeout:", err)
+			}
 			sm.stream = nil
 		}
 	})
@@ -129,7 +132,9 @@ func (sm *StreamManager) Close() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	if sm.stream != nil {
-		sm.stream.CloseSend()
+		if err := sm.stream.CloseSend(); err != nil {
+			log.Errorln("Failed to close stream:", err)
+		}
 		sm.stream = nil
 	}
 }

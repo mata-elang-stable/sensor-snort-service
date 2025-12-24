@@ -2,6 +2,8 @@ package kafka_producer
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
@@ -19,7 +21,14 @@ type Producer struct {
 	topic      string
 }
 
-func NewKafkaProducer(brokers string, schemaRegistryUrl string, topic string) (*Producer, error) {
+func NewKafkaProducer(brokers string, schemaRegistryUrl string, topic string, securityProtocol string, pathToCA string, pathToClientKeystore string, clientKeystorePassword string) (*Producer, error) {
+	// Determine and validate security protocol and TLS assets.
+	effectiveProtocol, err := validateAndDetermineProtocol(securityProtocol, pathToCA, pathToClientKeystore)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build the producer config inline (minimal changes):
 	config := &kafka.ConfigMap{
 		"bootstrap.servers":        brokers,
 		"enable.idempotence":       true,
@@ -31,7 +40,26 @@ func NewKafkaProducer(brokers string, schemaRegistryUrl string, topic string) (*
 		"retry.backoff.ms":         100,
 		"socket.keepalive.enable":  true,
 		"go.batch.producer":        true,
+		"security.protocol":        effectiveProtocol,
 	}
+
+	// Only set ssl.ca.location if a CA path is provided and TLS is in use.
+	if pathToCA != "" && effectiveProtocol != "PLAINTEXT" {
+		(*config)["ssl.ca.location"] = pathToCA
+	}
+
+	// Add client keystore when provided to enable mTLS (PKCS#12)
+	if pathToClientKeystore != "" {
+		if effectiveProtocol != "PLAINTEXT" {
+			(*config)["ssl.keystore.location"] = pathToClientKeystore
+			if clientKeystorePassword != "" {
+				(*config)["ssl.keystore.password"] = clientKeystorePassword
+			}
+		} else {
+			log.Warnf("Client keystore provided but TLS not enabled; ignoring client keystore: %s", pathToClientKeystore)
+		}
+	}
+
 	p, err := kafka.NewProducer(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
@@ -56,7 +84,12 @@ func NewKafkaProducer(brokers string, schemaRegistryUrl string, topic string) (*
 		}
 	}()
 
-	client, err := schemaregistry.NewClient(schemaregistry.NewConfig(schemaRegistryUrl))
+	registryConfig := schemaregistry.NewConfig(schemaRegistryUrl)
+	if pathToCA != "" {
+		registryConfig.SslCaLocation = pathToCA
+	}
+
+	client, err := schemaregistry.NewClient(registryConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schema registry client: %w", err)
 	}
@@ -74,6 +107,45 @@ func NewKafkaProducer(brokers string, schemaRegistryUrl string, topic string) (*
 		topic:      topic,
 	}, nil
 }
+
+// validateAndDetermineProtocol validates the provided TLS assets and returns the
+// effective security protocol (uppercased). If TLS is requested but no TLS material
+// (CA or keystore) is provided, we return an error to avoid runtime failures.
+func validateAndDetermineProtocol(securityProtocol, pathToCA, pathToClientKeystore string) (string, error) {
+	protocol := strings.ToUpper(strings.TrimSpace(securityProtocol))
+	if protocol == "" {
+		return "PLAINTEXT", nil
+	}
+
+	// Only validate TLS requirements for SSL-like protocols
+	if protocol == "SSL" || protocol == "SASL_SSL" {
+		if pathToCA == "" && pathToClientKeystore == "" {
+			return "", fmt.Errorf("security.protocol %s requires a path_to_ca or path_to_client_keystore", protocol)
+		}
+
+		// If CA path provided, check existence
+		if pathToCA != "" {
+			if fi, err := os.Stat(pathToCA); err != nil {
+				return "", fmt.Errorf("failed to stat CA file: %w", err)
+			} else if fi.IsDir() {
+				return "", fmt.Errorf("path_to_ca points to a directory, not a file: %s", pathToCA)
+			}
+		}
+
+		// If keystore provided, check existence
+		if pathToClientKeystore != "" {
+			if fi, err := os.Stat(pathToClientKeystore); err != nil {
+				return "", fmt.Errorf("failed to stat client keystore: %w", err)
+			} else if fi.IsDir() {
+				return "", fmt.Errorf("path_to_client_keystore points to a directory, not a file: %s", pathToClientKeystore)
+			}
+		}
+	}
+
+	return protocol, nil
+}
+
+// (No helper; inline config above to keep changes minimal.)
 
 func createKafkaMessages(serializer *protobuf.Serializer, topic string, value *pb.SensorEvent) (*kafka.Message, error) {
 	payload, err := serializer.Serialize(topic, value)
