@@ -96,11 +96,6 @@ func (u *UnixListener) Start(ctx context.Context, q *queue.EventBatchQueue) erro
 		log.WithField("package", "unix_listener").Infoln("Shutting down UnixListener process.")
 	}()
 
-	// Accept connection from Snort
-	// In a typical scenario where Snort connects and stays connected, we might want a loop here if we expect reconnections.
-	// However, following the reference implementation which handles a single connection session (or maybe the loop is implicit in how it runs? No, the reference accepts once).
-	// Snort usually keeps the connection open. If it drops, the listener might need to re-accept.
-	// For now, I'll stick to the reference implementation from `ravenxcope-sensor-suricata`.
 	conn, err := u.listener.Accept()
 	if err != nil {
 		log.WithFields(logger.Fields{
