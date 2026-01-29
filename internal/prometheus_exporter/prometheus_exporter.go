@@ -107,8 +107,8 @@ func (prom *Metrics) StartServer(ctx context.Context) error {
 	return nil
 }
 
-func (prom *Metrics) RecordMetrics(fileListener *listener.FileListener, eventQueue *queue.EventBatchQueue) {
-	MESEventReadPerSecond.Set(float64(fileListener.GetEventReadPerSecond()))
+func (prom *Metrics) RecordMetrics(l listener.Listener, eventQueue *queue.EventBatchQueue) {
+	MESEventReadPerSecond.Set(float64(l.GetEventReadPerSecond()))
 	MESEventProcessedPerSecond.Set(float64(eventQueue.GetEventProcessedPerSecond()))
 	MESEventBatchSentPerSecond.Set(float64(eventQueue.GetEventBatchSentPerSecond()))
 	MESBatchQueueSize.Set(float64(eventQueue.GetQueueSize()))

@@ -94,10 +94,10 @@ func runClient(cmd *cobra.Command, args []string) {
 	mainContext, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Create a file listener
-	fileListener, err := listener.NewFileListener(conf.SnortAlertFile)
+	// Create a unix socket listener
+	unixListener, err := listener.NewUnixListener(conf.SnortAlertFile)
 	if err != nil {
-		log.WithField("error", err).Fatalln("failed to create file listener")
+		log.WithField("error", err).Fatalln("failed to create unix listener")
 		return
 	}
 
@@ -125,12 +125,12 @@ func runClient(cmd *cobra.Command, args []string) {
 		return err
 	})
 
-	// Start the file listener
+	// Start the unix listener
 	g.Go(func() error {
 		defer cancel()
-		log.Infof("Starting File Listener...")
-		err := fileListener.Start(gCtx, eventQueue)
-		defer log.WithField("package", "main").Infof("File Listener Job is stopped. (%v)\n", err)
+		log.Infof("Starting Unix Listener...")
+		err := unixListener.Start(gCtx, eventQueue)
+		defer log.WithField("package", "main").Infof("Unix Listener Job is stopped. (%v)\n", err)
 		return err
 	})
 
@@ -149,7 +149,7 @@ func runClient(cmd *cobra.Command, args []string) {
 		log.Infof("Shutting down the client...")
 
 		streamManager.Close()
-		return fileListener.Stop()
+		return unixListener.Stop()
 	})
 
 	// Record metrics every second using the prometheus exporter
@@ -170,7 +170,7 @@ func runClient(cmd *cobra.Command, args []string) {
 				cancel()
 				return nil
 			case <-ticker.C:
-				prom.RecordMetrics(fileListener, eventQueue)
+				prom.RecordMetrics(unixListener, eventQueue)
 			}
 		}
 	})
