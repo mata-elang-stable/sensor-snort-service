@@ -37,12 +37,14 @@ func init() {
 	viper.SetDefault("file", "/var/log/snort/alert_json.txt")
 	viper.SetDefault("server", "localhost")
 	viper.SetDefault("port", 50051)
-	viper.SetDefault("insecure", true)
 	viper.SetDefault("interval", 1*time.Second)
 	viper.SetDefault("sensor_id", "sensor1")
 	viper.SetDefault("testing_mode", false)
 	viper.SetDefault("max_clients", 10)
 	viper.SetDefault("max_message_size", 100)
+	viper.SetDefault("secure", false)
+	viper.SetDefault("certificate", "")
+	viper.SetDefault("server_name", "")
 
 	if err := viper.Unmarshal(&clientConfig); err != nil {
 		log.WithField("error", err).Fatalln("Failed to unmarshal configuration.")
@@ -56,7 +58,9 @@ func init() {
 		"Specifies the path to the Snort alert file.")
 	flags.StringVarP(&clientConfig.GRPCServer, "server", "s", clientConfig.GRPCServer, "Specifies the gRPC server.")
 	flags.IntVarP(&clientConfig.GRPCPort, "port", "p", clientConfig.GRPCPort, "Specifies the gRPC port.")
-	flags.BoolVar(&clientConfig.GRPCSecure, "insecure", clientConfig.GRPCSecure, "Specifies whether the connection is secure or not.")
+	flags.BoolVar(&clientConfig.GRPCSecure, "secure", clientConfig.GRPCSecure, "Specifies whether the connection is secure or not.")
+	flags.StringVar(&clientConfig.GRPCCertFile, "certificate", clientConfig.GRPCCertFile, "Path to TLS certificate file.")
+	flags.StringVar(&clientConfig.GRPCServerName, "server-name", clientConfig.GRPCServerName, "Server name for TLS verification.")
 	flags.CountVarP(&conf.VerboseCount, "verbose", "v", "Increase verbosity of the output.")
 	flags.StringVar(&clientConfig.SensorID, "sensor-id", clientConfig.SensorID, "Specifies the sensor ID.")
 	flags.DurationVarP(&clientConfig.GRPCInterval, "interval", "i", clientConfig.GRPCInterval, "Specifies the interval to send the data to the server.")
@@ -102,7 +106,11 @@ func runClient(cmd *cobra.Command, args []string) {
 	// Create an event queue to store sensor events
 	eventQueue := queue.NewEventBatchQueue()
 
-	streamManager, err := grpc.NewStreamManager(conf.GRPCServer, conf.GRPCPort, grpc.CertOpts{Insecure: true}, confInstance.GRPCMaxMsgSize, 10*time.Second)
+	streamManager, err := grpc.NewStreamManager(conf.GRPCServer, conf.GRPCPort, grpc.CertOpts{
+		Insecure:   !conf.GRPCSecure,
+		CertFile:   conf.GRPCCertFile,
+		ServerName: conf.GRPCServerName,
+	}, confInstance.GRPCMaxMsgSize, 10*time.Second)
 	if err != nil {
 		log.Errorf("Failed to create stream manager: %v", err)
 	}

@@ -37,7 +37,7 @@ func init() {
 	serverConfig := conf.Server()
 	viper.SetDefault("host", "localhost")
 	viper.SetDefault("port", 50051)
-	viper.SetDefault("insecure", false)
+	viper.SetDefault("secure", false)
 	viper.SetDefault("certificate", "")
 	viper.SetDefault("key", "")
 	viper.SetDefault("max_message_size", 100)
@@ -56,9 +56,9 @@ func init() {
 	flags.StringVarP(&serverConfig.GRPCHost, "host", "s", serverConfig.GRPCHost,
 		"Specifies the host to listen to.")
 	flags.IntVarP(&serverConfig.GRPCPort, "port", "p", serverConfig.GRPCPort, "Specifies the gRPC port.")
-	flags.BoolVar(&serverConfig.GRPCSecure, "insecure", serverConfig.GRPCSecure, "Specifies whether the connection is secure or not.")
-	flags.StringVar(&serverConfig.GRPCCertFile, "certificate", serverConfig.GRPCCertFile, "Specifies whether the connection is secure or not.")
-	flags.StringVar(&serverConfig.GRPCKeyFile, "key", serverConfig.GRPCKeyFile, "Specifies whether the connection is secure or not.")
+	flags.BoolVar(&serverConfig.GRPCSecure, "secure", serverConfig.GRPCSecure, "Specifies whether the connection is secure or not.")
+	flags.StringVar(&serverConfig.GRPCCertFile, "certificate", serverConfig.GRPCCertFile, "Path to TLS certificate file.")
+	flags.StringVar(&serverConfig.GRPCKeyFile, "key", serverConfig.GRPCKeyFile, "Path to TLS key file.")
 	flags.IntVarP(&conf.GRPCMaxMsgSize, "max-message-size", "m", conf.GRPCMaxMsgSize, "Specifies the maximum message size.")
 	flags.StringVar(&serverConfig.SchemaRegistryUrl, "schema-registry-url", serverConfig.SchemaRegistryUrl, "Specifies the schema registry URL.")
 	flags.StringVar(&serverConfig.KafkaBrokers, "kafka-broker", serverConfig.KafkaBrokers, "Specifies the Kafka broker to connect to.")
@@ -140,11 +140,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 
 	// Initialize gRPC server
-	if conf.GRPCSecure {
-
-	} else {
-		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", conf.GRPCHost, conf.GRPCPort))
-	}
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", conf.GRPCHost, conf.GRPCPort))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
@@ -154,7 +150,7 @@ func runServer(cmd *cobra.Command, args []string) {
 		grpc.MaxSendMsgSize(confInstance.GRPCMaxMsgSize * 1024 * 1024),
 	}
 	if conf.GRPCSecure {
-		creds, err = credentials.NewServerTLSFromFile(conf.GRPCCertFile, conf.GRPCKeyFile)
+		creds, err := credentials.NewServerTLSFromFile(conf.GRPCCertFile, conf.GRPCKeyFile)
 		if err != nil {
 			log.Fatalf("Failed to load TLS %v", err)
 		}
