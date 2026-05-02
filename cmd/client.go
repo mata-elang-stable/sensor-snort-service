@@ -35,6 +35,7 @@ func init() {
 
 	clientConfig := conf.Client()
 	viper.SetDefault("file", "/var/log/snort/alert_json.txt")
+	viper.SetDefault("socket", "/var/run/snort/alert.sock")
 	viper.SetDefault("server", "localhost")
 	viper.SetDefault("port", 50051)
 	viper.SetDefault("interval", 1*time.Second)
@@ -54,8 +55,10 @@ func init() {
 
 	flags := clientCmd.PersistentFlags()
 
-	flags.StringVarP(&clientConfig.SnortAlertFile, "file", "f", clientConfig.SnortAlertFile,
+	flags.StringVarP(&clientConfig.AlertFilePath, "file", "f", clientConfig.AlertFilePath,
 		"Specifies the path to the Snort alert file.")
+	flags.StringVar(&clientConfig.AlertSocketPath, "socket", clientConfig.AlertSocketPath,
+		"Specifies the path to the Snort alert unix socket.")
 	flags.StringVarP(&clientConfig.GRPCServer, "server", "s", clientConfig.GRPCServer, "Specifies the gRPC server.")
 	flags.IntVarP(&clientConfig.GRPCPort, "port", "p", clientConfig.GRPCPort, "Specifies the gRPC port.")
 	flags.BoolVar(&clientConfig.GRPCSecure, "secure", clientConfig.GRPCSecure, "Specifies whether the connection is secure or not.")
@@ -81,7 +84,8 @@ func runClient(cmd *cobra.Command, args []string) {
 	conf := confInstance.Client()
 
 	log.Infof("Starting server with configuration:")
-	log.Infof("SnortAlertFile: %s", conf.SnortAlertFile)
+	log.Infof("AlertFilePath: %s", conf.AlertFilePath)
+	log.Infof("AlertSocketPath: %s", conf.AlertSocketPath)
 	log.Infof("GRPCServer: %s", conf.GRPCServer)
 	log.Infof("GRPCPort: %d", conf.GRPCPort)
 	log.Infof("GRPCSecure: %t", conf.GRPCSecure)
@@ -96,11 +100,28 @@ func runClient(cmd *cobra.Command, args []string) {
 	mainContext, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Create a unix socket listener
-	unixListener, err := listener.NewUnixListener(conf.SnortAlertFile)
-	if err != nil {
-		log.WithField("error", err).Fatalln("failed to create unix listener")
-		return
+	// Create the appropriate listener: --socket flag triggers unix socket, otherwise file
+	var lis listener.Listener
+	var err error
+
+	if cmd.Flags().Changed("file") && cmd.Flags().Changed("socket") {
+		log.Fatalln("cannot specify both --file and --socket; choose one")
+	}
+
+	if cmd.Flags().Changed("socket") {
+		lis, err = listener.NewUnixListener(conf.AlertSocketPath)
+		if err != nil {
+			log.WithField("error", err).Fatalln("failed to create socket listener")
+			return
+		}
+		log.Infoln("Using unix socket listener")
+	} else {
+		lis, err = listener.NewFileListener(conf.AlertFilePath)
+		if err != nil {
+			log.WithField("error", err).Fatalln("failed to create file listener")
+			return
+		}
+		log.Infoln("Using file listener")
 	}
 
 	// Create an event queue to store sensor events
@@ -131,12 +152,12 @@ func runClient(cmd *cobra.Command, args []string) {
 		return err
 	})
 
-	// Start the unix listener
+	// Start the listener
 	g.Go(func() error {
 		defer cancel()
-		log.Infof("Starting Unix Listener...")
-		err := unixListener.Start(gCtx, eventQueue)
-		defer log.WithField("package", "main").Infof("Unix Listener Job is stopped. (%v)\n", err)
+		log.Infof("Starting Listener...")
+		err := lis.Start(gCtx, eventQueue)
+		defer log.WithField("package", "main").Infof("Listener Job is stopped. (%v)\n", err)
 		return err
 	})
 
@@ -155,7 +176,7 @@ func runClient(cmd *cobra.Command, args []string) {
 		log.Infof("Shutting down the client...")
 
 		streamManager.Close()
-		return unixListener.Stop()
+		return lis.Stop()
 	})
 
 	// Record metrics every second using the prometheus exporter
@@ -176,7 +197,7 @@ func runClient(cmd *cobra.Command, args []string) {
 				cancel()
 				return nil
 			case <-ticker.C:
-				prom.RecordMetrics(unixListener, eventQueue)
+				prom.RecordMetrics(lis, eventQueue)
 			}
 		}
 	})

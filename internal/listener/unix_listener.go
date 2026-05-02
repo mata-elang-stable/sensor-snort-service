@@ -171,6 +171,8 @@ func (u *UnixListener) GetEventReadPerSecond() int64 {
 }
 
 // Stop stops the unix listener.
+// Closing u.conn ensures the scanner.Scan() loop in Start() unblocks,
+// allowing the Start() defer to clean up resources properly.
 func (u *UnixListener) Stop() error {
 	if u.conn != nil {
 		u.conn.Close()
