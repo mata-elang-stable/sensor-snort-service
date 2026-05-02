@@ -150,7 +150,17 @@ func runServer(cmd *cobra.Command, args []string) {
 	g, _ := errgroup.WithContext(mainContext)
 
 	// Initialize kafka producer instance
-	producer, err := kafka_producer.NewKafkaProducer(conf.KafkaBrokers, conf.SchemaRegistryUrl, conf.KafkaTopic, conf.SecurityProtocol, conf.PathToCA, conf.PathToClientKeystore, conf.ClientKeystorePassword)
+	producer, err := kafka_producer.NewKafkaProducer(
+		conf.KafkaBrokers,
+		conf.SchemaRegistryUrl,
+		conf.KafkaTopic,
+		kafka_producer.ProducerTLSConfig{
+			SecurityProtocol:       conf.SecurityProtocol,
+			PathToCA:               conf.PathToCA,
+			PathToClientKeystore:   conf.PathToClientKeystore,
+			ClientKeystorePassword: conf.ClientKeystorePassword,
+		},
+	)
 	if err != nil {
 		log.Fatalf("Failed to create kafka producer: %v", err)
 	}

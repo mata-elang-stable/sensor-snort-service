@@ -21,9 +21,21 @@ type Producer struct {
 	topic      string
 }
 
-func NewKafkaProducer(brokers string, schemaRegistryUrl string, topic string, securityProtocol string, pathToCA string, pathToClientKeystore string, clientKeystorePassword string) (*Producer, error) {
+// ProducerTLSConfig holds TLS-related configuration for the Kafka producer.
+type ProducerTLSConfig struct {
+	SecurityProtocol       string
+	PathToCA               string
+	PathToClientKeystore   string
+	ClientKeystorePassword string
+}
+
+func isTLSProtocol(protocol string) bool {
+	return protocol == "SSL" || protocol == "SASL_SSL"
+}
+
+func NewKafkaProducer(brokers, schemaRegistryUrl, topic string, tls ProducerTLSConfig) (*Producer, error) {
 	// Determine and validate security protocol and TLS assets.
-	effectiveProtocol, err := validateAndDetermineProtocol(securityProtocol, pathToCA, pathToClientKeystore)
+	effectiveProtocol, err := validateAndDetermineProtocol(tls.SecurityProtocol, tls.PathToCA, tls.PathToClientKeystore)
 	if err != nil {
 		return nil, err
 	}
@@ -44,19 +56,19 @@ func NewKafkaProducer(brokers string, schemaRegistryUrl string, topic string, se
 	}
 
 	// Only set ssl.ca.location if a CA path is provided and TLS is in use.
-	if pathToCA != "" && effectiveProtocol != "PLAINTEXT" {
-		(*config)["ssl.ca.location"] = pathToCA
+	if tls.PathToCA != "" && isTLSProtocol(effectiveProtocol) {
+		(*config)["ssl.ca.location"] = tls.PathToCA
 	}
 
 	// Add client keystore when provided to enable mTLS (PKCS#12)
-	if pathToClientKeystore != "" {
-		if effectiveProtocol != "PLAINTEXT" {
-			(*config)["ssl.keystore.location"] = pathToClientKeystore
-			if clientKeystorePassword != "" {
-				(*config)["ssl.keystore.password"] = clientKeystorePassword
+	if tls.PathToClientKeystore != "" {
+		if isTLSProtocol(effectiveProtocol) {
+			(*config)["ssl.keystore.location"] = tls.PathToClientKeystore
+			if tls.ClientKeystorePassword != "" {
+				(*config)["ssl.keystore.password"] = tls.ClientKeystorePassword
 			}
 		} else {
-			log.Warnf("Client keystore provided but TLS not enabled; ignoring client keystore: %s", pathToClientKeystore)
+			log.Warnf("Client keystore provided but TLS not enabled; ignoring client keystore: %s", tls.PathToClientKeystore)
 		}
 	}
 
@@ -85,8 +97,8 @@ func NewKafkaProducer(brokers string, schemaRegistryUrl string, topic string, se
 	}()
 
 	registryConfig := schemaregistry.NewConfig(schemaRegistryUrl)
-	if pathToCA != "" {
-		registryConfig.SslCaLocation = pathToCA
+	if tls.PathToCA != "" && (strings.HasPrefix(schemaRegistryUrl, "https://") || isTLSProtocol(effectiveProtocol)) {
+		registryConfig.SslCaLocation = tls.PathToCA
 	}
 
 	client, err := schemaregistry.NewClient(registryConfig)
@@ -117,8 +129,18 @@ func validateAndDetermineProtocol(securityProtocol, pathToCA, pathToClientKeysto
 		return "PLAINTEXT", nil
 	}
 
+	var validProtocols = map[string]bool{
+		"PLAINTEXT":      true,
+		"SSL":            true,
+		"SASL_PLAINTEXT": true,
+		"SASL_SSL":       true,
+	}
+	if !validProtocols[protocol] {
+		return "", fmt.Errorf("invalid security.protocol: %s (valid values: PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL)", protocol)
+	}
+
 	// Only validate TLS requirements for SSL-like protocols
-	if protocol == "SSL" || protocol == "SASL_SSL" {
+	if isTLSProtocol(protocol) {
 		if pathToCA == "" && pathToClientKeystore == "" {
 			return "", fmt.Errorf("security.protocol %s requires a path_to_ca or path_to_client_keystore", protocol)
 		}
