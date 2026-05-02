@@ -11,8 +11,11 @@ import (
 )
 
 type ClientConfig struct {
-	// SnortAlertFile is the file to read the Snort alert from.
-	SnortAlertFile string `mapstructure:"file"`
+	// AlertFilePath is the path to the Snort alert file (used with --file flag).
+	AlertFilePath string `mapstructure:"file"`
+
+	// AlertSocketPath is the path to the Snort alert unix socket (used with --socket flag).
+	AlertSocketPath string `mapstructure:"socket"`
 
 	// GRPCServer is the server to connect to.
 	GRPCServer string `mapstructure:"server"`
