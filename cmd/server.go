@@ -44,6 +44,10 @@ func init() {
 	viper.SetDefault("kafka_brokers", "localhost:9092")
 	viper.SetDefault("schema_registry_url", "http://localhost:8081")
 	viper.SetDefault("kafka_topic", "sensor_events")
+	viper.SetDefault("security_protocol", "PLAINTEXT")
+	viper.SetDefault("path_to_ca", "")
+	viper.SetDefault("path_to_client_keystore", "")
+	viper.SetDefault("client_keystore_password", "")
 
 	if err := viper.Unmarshal(&serverConfig); err != nil {
 		log.WithField("error", err).Fatalln("Failed to unmarshal configuration.")
@@ -63,6 +67,10 @@ func init() {
 	flags.StringVar(&serverConfig.SchemaRegistryUrl, "schema-registry-url", serverConfig.SchemaRegistryUrl, "Specifies the schema registry URL.")
 	flags.StringVar(&serverConfig.KafkaBrokers, "kafka-broker", serverConfig.KafkaBrokers, "Specifies the Kafka broker to connect to.")
 	flags.StringVar(&serverConfig.KafkaTopic, "kafka-topic", serverConfig.KafkaTopic, "Specifies the Kafka topic.")
+	flags.StringVar(&serverConfig.SecurityProtocol, "security-protocol", serverConfig.SecurityProtocol, "Specifies the security protocol to use.")
+	flags.StringVar(&serverConfig.PathToCA, "path-to-ca", serverConfig.PathToCA, "Specifies the path to the CA certificate file.")
+	flags.StringVar(&serverConfig.PathToClientKeystore, "path-to-client-keystore", serverConfig.PathToClientKeystore, "Specifies the path to the client PKCS#12 keystore (for mTLS).")
+	flags.StringVar(&serverConfig.ClientKeystorePassword, "client-keystore-password", serverConfig.ClientKeystorePassword, "Password for the client PKCS#12 keystore (if encrypted). Provided as the password value, not as a path to a file.")
 	flags.CountVarP(&conf.VerboseCount, "verbose", "v", "Increase verbosity of the output.")
 
 	if err := viper.BindPFlags(flags); err != nil {
@@ -125,6 +133,14 @@ func runServer(cmd *cobra.Command, args []string) {
 	log.Infof("Kafka broker: %s", conf.KafkaBrokers)
 	log.Infof("Schema registry URL: %s", conf.SchemaRegistryUrl)
 	log.Infof("Kafka topic: %s", conf.KafkaTopic)
+	log.Infof("Security protocol: %s", conf.SecurityProtocol)
+	log.Infof("Path to CA: %s", conf.PathToCA)
+	log.Infof("Path to client keystore: %s", conf.PathToClientKeystore)
+	if conf.ClientKeystorePassword == "" {
+		log.Infof("Client keystore password: (none provided)")
+	} else {
+		log.Infof("Client keystore password: provided")
+	}
 	log.Infoln("")
 
 	// Create a context with cancel function on interrupt signal
@@ -134,7 +150,17 @@ func runServer(cmd *cobra.Command, args []string) {
 	g, _ := errgroup.WithContext(mainContext)
 
 	// Initialize kafka producer instance
-	producer, err := kafka_producer.NewKafkaProducer(conf.KafkaBrokers, conf.SchemaRegistryUrl, conf.KafkaTopic)
+	producer, err := kafka_producer.NewKafkaProducer(
+		conf.KafkaBrokers,
+		conf.SchemaRegistryUrl,
+		conf.KafkaTopic,
+		kafka_producer.ProducerTLSConfig{
+			SecurityProtocol:       conf.SecurityProtocol,
+			PathToCA:               conf.PathToCA,
+			PathToClientKeystore:   conf.PathToClientKeystore,
+			ClientKeystorePassword: conf.ClientKeystorePassword,
+		},
+	)
 	if err != nil {
 		log.Fatalf("Failed to create kafka producer: %v", err)
 	}
