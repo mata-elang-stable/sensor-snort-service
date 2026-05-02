@@ -30,10 +30,10 @@ type ClientConfig struct {
 	SensorID string `mapstructure:"sensor_id"`
 
 	// GRPCCertFile is the certificate file to connect to the server.
-	GRPCCertFile string
+	GRPCCertFile string `mapstructure:"certificate"`
 
 	// GRPCServerName is the name of the server.
-	GRPCServerName string
+	GRPCServerName string `mapstructure:"server_name"`
 
 	// FieldsToSkip is the fields to skip in the log.
 	FieldsToSkip []string
@@ -63,6 +63,12 @@ type ServerConfig struct {
 
 	// KafkaTopic is the Kafka topic.
 	KafkaTopic string `mapstructure:"kafka_topic"`
+
+	// GRPCCertFile is the certificate file for the gRPC server.
+	GRPCCertFile string
+
+	// GRPCKeyFile is the key file for the gRPC server.
+	GRPCKeyFile string
 }
 
 type Config struct {
