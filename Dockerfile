@@ -30,6 +30,12 @@ RUN adduser -D -u 1000 appuser && \
 
 COPY --from=build --chown=appuser:appuser /go/bin/app /go/bin/app
 
+RUN adduser -D -u 1000 appuser && \
+    mkdir -p /go/bin && \
+    chown -R appuser:appuser /go/bin
+
+COPY --from=build --chown=appuser:appuser /go/bin/app /go/bin/app
+
 RUN apk add --no-cache librdkafka
 
 USER appuser

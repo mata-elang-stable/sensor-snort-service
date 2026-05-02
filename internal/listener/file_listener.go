@@ -103,6 +103,14 @@ MainLoop:
 			payload.Metadata.ReadAt = time.Now().UnixMicro()
 			pbRecord, metric := processor.ConvertSnortAlertToSensorEvent(&payload)
 
+			if pbRecord == nil || metric == nil {
+				log.WithFields(logger.Fields{
+					"package": "file_listener",
+					"reason":  "nil return from ConvertSnortAlertToSensorEvent",
+				}).Debugln("skipping event")
+				continue MainLoop
+			}
+
 			q.AddRecordToQueue(pbRecord, metric)
 			f.linesThisSec.Add(1)
 		}

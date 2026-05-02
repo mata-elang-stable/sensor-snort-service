@@ -136,10 +136,8 @@ func (g *Messenger) StreamData(ctx context.Context, payloads []*pb.SensorEvent) 
 			}
 		}
 
-		// Close the stream
-		if err := stream.CloseSend(); err != nil {
-			log.WithField("package", "grpc").Errorf("Failed to close and receive data from gRPC server: %v\n", err)
-			return err
+		if _, err := stream.CloseAndRecv(); err != nil {
+			log.WithField("package", "grpc").Debugf("Stream closed: %v", err)
 		}
 
 		return nil

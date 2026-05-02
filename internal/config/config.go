@@ -11,8 +11,11 @@ import (
 )
 
 type ClientConfig struct {
-	// SnortAlertFile is the file to read the Snort alert from.
-	SnortAlertFile string `mapstructure:"file"`
+	// AlertFilePath is the path to the Snort alert file (used with --file flag).
+	AlertFilePath string `mapstructure:"file"`
+
+	// AlertSocketPath is the path to the Snort alert unix socket (used with --socket flag).
+	AlertSocketPath string `mapstructure:"socket"`
 
 	// GRPCServer is the server to connect to.
 	GRPCServer string `mapstructure:"server"`
@@ -30,10 +33,10 @@ type ClientConfig struct {
 	SensorID string `mapstructure:"sensor_id"`
 
 	// GRPCCertFile is the certificate file to connect to the server.
-	GRPCCertFile string
+	GRPCCertFile string `mapstructure:"certificate"`
 
 	// GRPCServerName is the name of the server.
-	GRPCServerName string
+	GRPCServerName string `mapstructure:"server_name"`
 
 	// FieldsToSkip is the fields to skip in the log.
 	FieldsToSkip []string
@@ -54,6 +57,12 @@ type ServerConfig struct {
 
 	// GRPCSecure is a flag to determine whether the connection is secure or not.
 	GRPCSecure bool `mapstructure:"secure"`
+  
+	// GRPCCertFile is the certificate file for the gRPC server.
+	GRPCCertFile string
+
+	// GRPCKeyFile is the key file for the gRPC server.
+	GRPCKeyFile string
 
 	// SchemaRegistryUrl is the schema registry URL.
 	SchemaRegistryUrl string `mapstructure:"schema_registry_url"`

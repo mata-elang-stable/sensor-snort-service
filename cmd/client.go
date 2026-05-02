@@ -35,14 +35,17 @@ func init() {
 
 	clientConfig := conf.Client()
 	viper.SetDefault("file", "/var/log/snort/alert_json.txt")
+	viper.SetDefault("socket", "/var/run/snort/alert.sock")
 	viper.SetDefault("server", "localhost")
 	viper.SetDefault("port", 50051)
-	viper.SetDefault("insecure", true)
 	viper.SetDefault("interval", 1*time.Second)
 	viper.SetDefault("sensor_id", "sensor1")
 	viper.SetDefault("testing_mode", false)
 	viper.SetDefault("max_clients", 10)
 	viper.SetDefault("max_message_size", 100)
+	viper.SetDefault("secure", false)
+	viper.SetDefault("certificate", "")
+	viper.SetDefault("server_name", "")
 
 	if err := viper.Unmarshal(&clientConfig); err != nil {
 		log.WithField("error", err).Fatalln("Failed to unmarshal configuration.")
@@ -52,11 +55,15 @@ func init() {
 
 	flags := clientCmd.PersistentFlags()
 
-	flags.StringVarP(&clientConfig.SnortAlertFile, "file", "f", clientConfig.SnortAlertFile,
+	flags.StringVarP(&clientConfig.AlertFilePath, "file", "f", clientConfig.AlertFilePath,
 		"Specifies the path to the Snort alert file.")
+	flags.StringVar(&clientConfig.AlertSocketPath, "socket", clientConfig.AlertSocketPath,
+		"Specifies the path to the Snort alert unix socket.")
 	flags.StringVarP(&clientConfig.GRPCServer, "server", "s", clientConfig.GRPCServer, "Specifies the gRPC server.")
 	flags.IntVarP(&clientConfig.GRPCPort, "port", "p", clientConfig.GRPCPort, "Specifies the gRPC port.")
-	flags.BoolVar(&clientConfig.GRPCSecure, "insecure", clientConfig.GRPCSecure, "Specifies whether the connection is secure or not.")
+	flags.BoolVar(&clientConfig.GRPCSecure, "secure", clientConfig.GRPCSecure, "Specifies whether the connection is secure or not.")
+	flags.StringVar(&clientConfig.GRPCCertFile, "certificate", clientConfig.GRPCCertFile, "Path to TLS certificate file.")
+	flags.StringVar(&clientConfig.GRPCServerName, "server-name", clientConfig.GRPCServerName, "Server name for TLS verification.")
 	flags.CountVarP(&conf.VerboseCount, "verbose", "v", "Increase verbosity of the output.")
 	flags.StringVar(&clientConfig.SensorID, "sensor-id", clientConfig.SensorID, "Specifies the sensor ID.")
 	flags.DurationVarP(&clientConfig.GRPCInterval, "interval", "i", clientConfig.GRPCInterval, "Specifies the interval to send the data to the server.")
@@ -77,7 +84,8 @@ func runClient(cmd *cobra.Command, args []string) {
 	conf := confInstance.Client()
 
 	log.Infof("Starting server with configuration:")
-	log.Infof("SnortAlertFile: %s", conf.SnortAlertFile)
+	log.Infof("AlertFilePath: %s", conf.AlertFilePath)
+	log.Infof("AlertSocketPath: %s", conf.AlertSocketPath)
 	log.Infof("GRPCServer: %s", conf.GRPCServer)
 	log.Infof("GRPCPort: %d", conf.GRPCPort)
 	log.Infof("GRPCSecure: %t", conf.GRPCSecure)
@@ -92,17 +100,38 @@ func runClient(cmd *cobra.Command, args []string) {
 	mainContext, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Create a file listener
-	fileListener, err := listener.NewFileListener(conf.SnortAlertFile)
-	if err != nil {
-		log.WithField("error", err).Fatalln("failed to create file listener")
-		return
+	// Create the appropriate listener: --socket flag triggers unix socket, otherwise file
+	var lis listener.Listener
+	var err error
+
+	if cmd.Flags().Changed("file") && cmd.Flags().Changed("socket") {
+		log.Fatalln("cannot specify both --file and --socket; choose one")
+	}
+
+	if cmd.Flags().Changed("socket") {
+		lis, err = listener.NewUnixListener(conf.AlertSocketPath)
+		if err != nil {
+			log.WithField("error", err).Fatalln("failed to create socket listener")
+			return
+		}
+		log.Infoln("Using unix socket listener")
+	} else {
+		lis, err = listener.NewFileListener(conf.AlertFilePath)
+		if err != nil {
+			log.WithField("error", err).Fatalln("failed to create file listener")
+			return
+		}
+		log.Infoln("Using file listener")
 	}
 
 	// Create an event queue to store sensor events
 	eventQueue := queue.NewEventBatchQueue()
 
-	streamManager, err := grpc.NewStreamManager(conf.GRPCServer, conf.GRPCPort, grpc.CertOpts{Insecure: true}, confInstance.GRPCMaxMsgSize, 10*time.Second)
+	streamManager, err := grpc.NewStreamManager(conf.GRPCServer, conf.GRPCPort, grpc.CertOpts{
+		Insecure:   !conf.GRPCSecure,
+		CertFile:   conf.GRPCCertFile,
+		ServerName: conf.GRPCServerName,
+	}, confInstance.GRPCMaxMsgSize, 10*time.Second)
 	if err != nil {
 		log.Errorf("Failed to create stream manager: %v", err)
 	}
@@ -123,12 +152,12 @@ func runClient(cmd *cobra.Command, args []string) {
 		return err
 	})
 
-	// Start the file listener
+	// Start the listener
 	g.Go(func() error {
 		defer cancel()
-		log.Infof("Starting File Listener...")
-		err := fileListener.Start(gCtx, eventQueue)
-		defer log.WithField("package", "main").Infof("File Listener Job is stopped. (%v)\n", err)
+		log.Infof("Starting Listener...")
+		err := lis.Start(gCtx, eventQueue)
+		defer log.WithField("package", "main").Infof("Listener Job is stopped. (%v)\n", err)
 		return err
 	})
 
@@ -147,7 +176,7 @@ func runClient(cmd *cobra.Command, args []string) {
 		log.Infof("Shutting down the client...")
 
 		streamManager.Close()
-		return fileListener.Stop()
+		return lis.Stop()
 	})
 
 	// Record metrics every second using the prometheus exporter
@@ -168,7 +197,7 @@ func runClient(cmd *cobra.Command, args []string) {
 				cancel()
 				return nil
 			case <-ticker.C:
-				prom.RecordMetrics(fileListener, eventQueue)
+				prom.RecordMetrics(lis, eventQueue)
 			}
 		}
 	})
