@@ -59,10 +59,10 @@ type ServerConfig struct {
 	GRPCSecure bool `mapstructure:"secure"`
   
 	// GRPCCertFile is the certificate file for the gRPC server.
-	GRPCCertFile string
+	GRPCCertFile string `mapstructure:"certificate"`
 
 	// GRPCKeyFile is the key file for the gRPC server.
-	GRPCKeyFile string
+	GRPCKeyFile string `mapstructure:"key"`
 
 	// SchemaRegistryUrl is the schema registry URL.
 	SchemaRegistryUrl string `mapstructure:"schema_registry_url"`
