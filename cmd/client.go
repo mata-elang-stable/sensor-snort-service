@@ -35,7 +35,7 @@ func init() {
 
 	clientConfig := conf.Client()
 	viper.SetDefault("file", "/var/log/snort/alert_json.txt")
-	viper.SetDefault("socket", "/var/run/snort/alert.sock")
+	viper.SetDefault("socket", "/var/run/snort/snort_alert")
 	viper.SetDefault("server", "localhost")
 	viper.SetDefault("port", 50051)
 	viper.SetDefault("interval", 1*time.Second)
