@@ -34,8 +34,8 @@ func init() {
 	conf := config.GetConfig()
 
 	clientConfig := conf.Client()
-	viper.SetDefault("file", "/var/log/snort/alert_json.txt")
-	viper.SetDefault("socket", "/var/run/snort/snort_alert")
+	viper.SetDefault("file", "")
+	viper.SetDefault("socket", "")
 	viper.SetDefault("server", "localhost")
 	viper.SetDefault("port", 50051)
 	viper.SetDefault("interval", 1*time.Second)
@@ -58,7 +58,7 @@ func init() {
 	flags.StringVarP(&clientConfig.AlertFilePath, "file", "f", clientConfig.AlertFilePath,
 		"Specifies the path to the Snort alert file.")
 	flags.StringVar(&clientConfig.AlertSocketPath, "socket", clientConfig.AlertSocketPath,
-		"Specifies the path to the Snort alert unix socket.")
+		"Specifies the path to the Snort alert unix socket. Should be /var/run/snort/snort_alert.")
 	flags.StringVarP(&clientConfig.GRPCServer, "server", "s", clientConfig.GRPCServer, "Specifies the gRPC server.")
 	flags.IntVarP(&clientConfig.GRPCPort, "port", "p", clientConfig.GRPCPort, "Specifies the gRPC port.")
 	flags.BoolVar(&clientConfig.GRPCSecure, "secure", clientConfig.GRPCSecure, "Specifies whether the connection is secure or not.")
@@ -100,28 +100,27 @@ func runClient(cmd *cobra.Command, args []string) {
 	mainContext, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Create the appropriate listener: --socket flag triggers unix socket, otherwise file
+	// Determine the alert source: socket or file (mutually exclusive)
 	var lis listener.Listener
 	var err error
 
-	if cmd.Flags().Changed("file") && cmd.Flags().Changed("socket") {
-		log.Fatalln("cannot specify both --file and --socket; choose one")
-	}
-
-	if cmd.Flags().Changed("socket") {
+	switch {
+	case conf.AlertSocketPath != "" && conf.AlertFilePath != "":
+		log.Fatalln("cannot specify both --file and --socket (or MES_CLIENT_FILE / MES_CLIENT_SOCKET env vars); choose one")
+	case conf.AlertSocketPath != "":
 		lis, err = listener.NewUnixListener(conf.AlertSocketPath)
 		if err != nil {
 			log.WithField("error", err).Fatalln("failed to create socket listener")
-			return
 		}
 		log.Infoln("Using unix socket listener")
-	} else {
+	case conf.AlertFilePath != "":
 		lis, err = listener.NewFileListener(conf.AlertFilePath)
 		if err != nil {
 			log.WithField("error", err).Fatalln("failed to create file listener")
-			return
 		}
 		log.Infoln("Using file listener")
+	default:
+		log.Fatalln("must specify either --file or --socket (or MES_CLIENT_FILE / MES_CLIENT_SOCKET env vars)")
 	}
 
 	// Create an event queue to store sensor events
